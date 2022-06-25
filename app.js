@@ -1,14 +1,24 @@
 const express = require('express');
 const http = require('http');
+const cors = require('cors')
 const socket = require('socket.io');
 
-const port = process.env.PORT || 8080
+const port = process.env.PORT || 8080;
 
 var app = express();
-const server = http.createServer(app)
-const io = socket(server)
 
-let rooms = []
+app.use(cors())
+
+const server = http.createServer(app);
+const io = socket(server);
+
+// contains objects like {p1: pid, p2: pid}
+// index by room ID
+let rooms = {};
+
+// contains IDs for rooms with only one player
+let waitingRooms = []
+
 let roomCount = 0;
 
 io.on('connection', function (socket) {
@@ -57,6 +67,19 @@ io.on('connection', function (socket) {
 
     
 });
+
+app.get("/getOpenRoom", (req, res)=>{
+    console.log("/getOpenRoom")
+    console.log("waitingRooms", waitingRooms)
+    if (waitingRooms.length > 0){
+        res.json({roomID: waitingRooms.shift()});
+    } else {
+        waitingRooms.push(roomCount);
+        roomCount++;
+        res.json({roomID: waitingRooms[0]})
+    }
+    
+})
 
 server.listen(port);
 console.log('Connected');
