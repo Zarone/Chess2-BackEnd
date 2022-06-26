@@ -65,6 +65,9 @@ io.on('connection', function (socket) {
             rooms[roomID].p2 = { pid: playerID, isWhite: false };
 
             socket.emit('player', rooms[roomID].p2 )
+
+            socket.emit("twoPlayers")
+            socket.broadcast.emit("twoPlayers")
         } else {
             console.log("attempting to join full room")
             return
@@ -99,17 +102,6 @@ io.on('connection', function (socket) {
         socket.broadcast.emit("registeredMove", args)
     })
 
-    // socket.on('move', function (msg) {
-    //     console.log("move", msg);
-    //     // socket.broadcast.emit('move', msg);
-    // });
-
-    // socket.on('play', function (msg) {
-    //     // socket.broadcast.emit('play', msg);
-    //     console.log("ready " + msg);
-    // });
-
-    
 });
 
 app.get("/getOpenRoom", (req, res)=>{
