@@ -30,6 +30,8 @@ let waitingRooms = []
 
 let roomCount = 0;
 
+const MAX_ROOMS = 3;
+
 io.on('connection', function (socket) {
     let playerID =  Math.floor((Math.random() * 100) + 1)
     let thisRoomID = undefined;
@@ -37,11 +39,14 @@ io.on('connection', function (socket) {
     console.log(playerID + ' connected');
 
     socket.on('joined', function ({roomID, friendRoom}) {
-        console.log("joined", roomID)
-
+        console.log("player joined room", roomID);
+        
         thisRoomID = roomID;
 
-        if (rooms[roomID] == undefined){
+        if (Object.keys(rooms).length >= MAX_ROOMS && rooms[roomID] == undefined){
+            socket.emit("maximumPlayers")
+            return
+        } else if (rooms[roomID] == undefined){
             rooms[roomID] = {friendRoom}
             roomCount++;
         }
@@ -122,6 +127,9 @@ app.get("/getOpenRoom", (req, res)=>{
 
     if (openRoomID){
         res.json({roomID: openRoomID});
+    } else if (Object.keys(rooms).length >= MAX_ROOMS){
+        res.json({roomID: null});
+        return
     } else {
         waitingRooms.push(roomCount);
         res.json({roomID: roomCount})
