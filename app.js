@@ -43,6 +43,7 @@ io.on('connection', function (socket) {
 
         if (rooms[roomID] == undefined){
             rooms[roomID] = {friendRoom}
+            roomCount++;
         }
 
         // if this is the first player to join the room
@@ -75,11 +76,13 @@ io.on('connection', function (socket) {
         let thisRoom = rooms[thisRoomID];
         if (thisRoom && thisRoom.p1 && thisRoom.p2) {
             if (thisRoom.p1.pid == playerID){
-                socket.broadcast.emit('gameOver', thisRoom.p2.pid);
+                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
             } else {
-                socket.broadcast.emit('gameOver', thisRoom.p1.pid);
+                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
             }
     
+            delete rooms[thisRoomID]
+        } else if (thisRoom){
             delete rooms[thisRoomID]
         }
         console.log("rooms", rooms)
@@ -106,8 +109,12 @@ app.get("/getOpenRoom", (req, res)=>{
     let openRoomID = undefined;
 
     for (let i = 0; i < waitingRooms.length; i++){
-        console.log(rooms[waitingRooms[i]])
-        if ( !rooms[waitingRooms[i]].friendRoom ){
+        console.log("rooms[waitingRooms[i]]", rooms[waitingRooms[i]])
+        
+        if ( !rooms[waitingRooms[i]] || rooms[waitingRooms[i]].p2 ){
+            waitingRooms.splice(i, 1);
+            i--;
+        } else if ( !rooms[waitingRooms[i]].friendRoom ){
             openRoomID = waitingRooms.splice(i, 1);
             break
         }
@@ -117,7 +124,6 @@ app.get("/getOpenRoom", (req, res)=>{
         res.json({roomID: openRoomID});
     } else {
         waitingRooms.push(roomCount);
-        roomCount++;
         res.json({roomID: roomCount})
     }
 
