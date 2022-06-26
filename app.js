@@ -30,7 +30,7 @@ let waitingRooms = []
 
 let roomCount = 0;
 
-const MAX_ROOMS = 3;
+const MAX_ROOMS = 20;
 
 io.on('connection', function (socket) {
     let playerID =  Math.floor((Math.random() * 100) + 1)
@@ -38,7 +38,7 @@ io.on('connection', function (socket) {
     
     console.log(playerID + ' connected');
 
-    socket.on('joined', function ({roomID, friendRoom}) {
+    socket.on('joined', ({roomID, friendRoom}) => {
         console.log("player joined room", roomID);
         
         thisRoomID = roomID;
@@ -74,7 +74,7 @@ io.on('connection', function (socket) {
         
     });
     
-    socket.on('disconnect', function () {
+    socket.on('disconnect', () => {
 
         console.log(playerID + ' disconnected');
         
@@ -93,6 +93,11 @@ io.on('connection', function (socket) {
         console.log("rooms", rooms)
 
     }); 
+
+    socket.on("makeMove", (args)=>{
+        // console.log("make move, args", args)
+        socket.broadcast.emit("registeredMove", args)
+    })
 
     // socket.on('move', function (msg) {
     //     console.log("move", msg);
