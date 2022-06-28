@@ -73,7 +73,7 @@ io.on('connection', function (socket) {
             return
         }
 
-        console.log(rooms)
+        console.log("rooms", rooms)
         
     });
     
@@ -98,21 +98,18 @@ io.on('connection', function (socket) {
     }); 
 
     socket.on("makeMove", (args)=>{
-        // console.log("make move, args", args)
         socket.broadcast.emit("registeredMove", args)
     })
 
 });
 
 app.get("/getOpenRoom", (req, res)=>{
-    console.log("/getOpenRoom")
+    console.log("call to /getOpenRoom")
     console.log("waitingRooms", waitingRooms)
     
     let openRoomID = undefined;
 
     for (let i = 0; i < waitingRooms.length; i++){
-        console.log("rooms[waitingRooms[i]]", rooms[waitingRooms[i]])
-        
         if ( !rooms[waitingRooms[i]] || rooms[waitingRooms[i]].p2 ){
             waitingRooms.splice(i, 1);
             i--;
@@ -134,6 +131,10 @@ app.get("/getOpenRoom", (req, res)=>{
 
     console.log("waitingRooms", waitingRooms)
     
+})
+
+app.get("/getRoomCount", (req, res)=>{
+    res.json({roomCount: Object.keys(rooms).length})
 })
 
 server.listen(port);
