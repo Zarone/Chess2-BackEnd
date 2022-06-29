@@ -30,7 +30,7 @@ let waitingRooms = []
 
 let roomCount = 0;
 
-const MAX_ROOMS = 20;
+const MAX_ROOMS = 25;
 
 function getFreeRoom(){
     console.log("call to /getOpenRoom")
@@ -103,7 +103,8 @@ io.on('connection', function (socket) {
             socket.emit("twoPlayers", thisRoomID)
             socket.broadcast.emit("twoPlayers", thisRoomID)
         } else {
-            console.log("attempting to join full room")
+            console.log("attempting to join full room, player", playerID)
+            socket.emit("fullRoom")
             return
         }
 
