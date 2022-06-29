@@ -32,6 +32,36 @@ let roomCount = 0;
 
 const MAX_ROOMS = 20;
 
+function getFreeRoom(){
+    console.log("call to /getOpenRoom")
+    console.log("waitingRooms", waitingRooms)
+    
+    let openRoomID = undefined;
+
+    for (let i = 0; i < waitingRooms.length; i++){
+        if ( !rooms[waitingRooms[i]] || rooms[waitingRooms[i]].p2 ){
+            waitingRooms.splice(i, 1);
+            i--;
+        } else if ( !rooms[waitingRooms[i]].friendRoom ){
+            openRoomID = waitingRooms.splice(i, 1);
+            break
+        }
+    }
+
+    if (openRoomID){
+        console.log("waitingRooms", waitingRooms)
+        return openRoomID[0]
+    } else if (Object.keys(rooms).length >= MAX_ROOMS){
+        console.log("waitingRooms", waitingRooms)
+        return null
+    } else {
+        waitingRooms.push(roomCount);
+        console.log("waitingRooms", waitingRooms)
+        return roomCount
+    }
+
+}
+
 io.on('connection', function (socket) {
     let playerID =  Math.floor((Math.random() * 100) + 1)
     let thisRoomID = undefined;
@@ -42,32 +72,36 @@ io.on('connection', function (socket) {
         console.log("player joined room", roomID);
         
         thisRoomID = roomID;
+        if (thisRoomID == null) thisRoomID = getFreeRoom();
 
-        if (Object.keys(rooms).length >= MAX_ROOMS && rooms[roomID] == undefined){
+        console.log("final roomID", thisRoomID)
+
+        if (Object.keys(rooms).length >= MAX_ROOMS && rooms[thisRoomID] == undefined){
             socket.emit("maximumPlayers")
             return
-        } else if (rooms[roomID] == undefined){
-            rooms[roomID] = {friendRoom}
+        } else if (rooms[thisRoomID] == undefined){
+            rooms[thisRoomID] = {friendRoom}
             roomCount++;
         }
 
         // if this is the first player to join the room
-        if (rooms[roomID].p1 == undefined){
-            rooms[roomID].p1 = { pid: playerID, isWhite: true };
+        if (rooms[thisRoomID].p1 == undefined){
+            rooms[thisRoomID].p1 = { pid: playerID, isWhite: true };
 
-            socket.emit('player', rooms[roomID].p1 )
-        } else if (rooms[roomID].p2 == undefined){
+            socket.emit('player', {...rooms[thisRoomID].p1, roomID: thisRoomID, } )
+        } else if (rooms[thisRoomID].p2 == undefined){
             
-            if (playerID == rooms[roomID].p1.pid){
+            if (playerID == rooms[thisRoomID].p1.pid){
                 playerID++;
             }
 
-            rooms[roomID].p2 = { pid: playerID, isWhite: false };
+            rooms[thisRoomID].p2 = { pid: playerID, isWhite: false };
 
-            socket.emit('player', rooms[roomID].p2 )
+            socket.emit('player', {...rooms[thisRoomID].p2, roomID: thisRoomID} )
 
-            socket.emit("twoPlayers")
-            socket.broadcast.emit("twoPlayers")
+            console.log("emitting twoPlayers", thisRoomID)
+            socket.emit("twoPlayers", thisRoomID)
+            socket.broadcast.emit("twoPlayers", thisRoomID)
         } else {
             console.log("attempting to join full room")
             return
@@ -102,36 +136,6 @@ io.on('connection', function (socket) {
     })
 
 });
-
-app.get("/getOpenRoom", (req, res)=>{
-    console.log("call to /getOpenRoom")
-    console.log("waitingRooms", waitingRooms)
-    
-    let openRoomID = undefined;
-
-    for (let i = 0; i < waitingRooms.length; i++){
-        if ( !rooms[waitingRooms[i]] || rooms[waitingRooms[i]].p2 ){
-            waitingRooms.splice(i, 1);
-            i--;
-        } else if ( !rooms[waitingRooms[i]].friendRoom ){
-            openRoomID = waitingRooms.splice(i, 1);
-            break
-        }
-    }
-
-    if (openRoomID){
-        res.json({roomID: openRoomID});
-    } else if (Object.keys(rooms).length >= MAX_ROOMS){
-        res.json({roomID: null});
-        return
-    } else {
-        waitingRooms.push(roomCount);
-        res.json({roomID: roomCount})
-    }
-
-    console.log("waitingRooms", waitingRooms)
-    
-})
 
 app.get("/getRoomCount", (req, res)=>{
     res.json({roomCount: Object.keys(rooms).length})
