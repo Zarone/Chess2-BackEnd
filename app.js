@@ -138,7 +138,7 @@ io.on('connection', function (socket) {
 });
 
 app.get("/getRoomCount", (req, res)=>{
-    res.json({roomCount: Object.keys(rooms).length})
+    res.json({roomCount: Object.keys(rooms).length.toString() + "/" + MAX_ROOMS.toString()})
 })
 
 server.listen(port);
