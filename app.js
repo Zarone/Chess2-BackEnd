@@ -30,11 +30,11 @@ let waitingRooms = []
 
 let roomCount = 0;
 
-const MAX_ROOMS = 25;
+const MAX_ROOMS = 50;
 
 function getFreeRoom(){
-    console.log("call to /getOpenRoom")
-    console.log("waitingRooms", waitingRooms)
+    if (process.env.DEBUG) console.log("call to /getOpenRoom")
+    if (process.env.DEBUG) console.log("waitingRooms", waitingRooms)
     
     let openRoomID = undefined;
 
@@ -49,14 +49,14 @@ function getFreeRoom(){
     }
 
     if (openRoomID){
-        console.log("waitingRooms", waitingRooms)
+        if (process.env.DEBUG) console.log("waitingRooms", waitingRooms)
         return openRoomID[0]
     } else if (Object.keys(rooms).length >= MAX_ROOMS){
-        console.log("waitingRooms", waitingRooms)
+        if (process.env.DEBUG) console.log("waitingRooms", waitingRooms)
         return null
     } else {
         waitingRooms.push(roomCount);
-        console.log("waitingRooms", waitingRooms)
+        if (process.env.DEBUG) console.log("waitingRooms", waitingRooms)
         return roomCount
     }
 
@@ -66,15 +66,15 @@ io.on('connection', function (socket) {
     let playerID =  Math.floor((Math.random() * 100) + 1)
     let thisRoomID = undefined;
     
-    console.log(playerID + ' connected');
+    if (process.env.DEBUG) console.log(playerID + ' connected');
 
     socket.on('joined', ({roomID, friendRoom}) => {
-        console.log("player joined room", roomID);
+        if (process.env.DEBUG) console.log("player joined room", roomID);
         
         thisRoomID = roomID;
         if (thisRoomID == null) thisRoomID = getFreeRoom();
 
-        console.log("final roomID", thisRoomID)
+        if (process.env.DEBUG) console.log("final roomID", thisRoomID)
 
         if (Object.keys(rooms).length >= MAX_ROOMS && rooms[thisRoomID] == undefined){
             socket.emit("maximumPlayers")
@@ -99,22 +99,22 @@ io.on('connection', function (socket) {
 
             socket.emit('player', {...rooms[thisRoomID].p2, roomID: thisRoomID} )
 
-            console.log("emitting twoPlayers", thisRoomID)
+            if (process.env.DEBUG) console.log("emitting twoPlayers", thisRoomID)
             socket.emit("twoPlayers", thisRoomID)
             socket.broadcast.emit("twoPlayers", thisRoomID)
         } else {
-            console.log("attempting to join full room, player", playerID)
+            if (process.env.DEBUG) console.log("attempting to join full room, player", playerID)
             socket.emit("fullRoom")
             return
         }
 
-        console.log("rooms", rooms)
+        if (process.env.DEBUG) console.log("rooms", rooms)
         
     });
     
     socket.on('disconnect', () => {
 
-        console.log(playerID + ' disconnected');
+        if (process.env.DEBUG) console.log(playerID + ' disconnected');
         
         let thisRoom = rooms[thisRoomID];
         if (thisRoom && thisRoom.p1 && thisRoom.p2) {
@@ -128,7 +128,7 @@ io.on('connection', function (socket) {
         } else if (thisRoom){
             delete rooms[thisRoomID]
         }
-        console.log("rooms", rooms)
+        if (process.env.DEBUG) console.log("rooms", rooms)
 
     }); 
 
