@@ -65,13 +65,10 @@ function getFreeRoom(){
 
 function checkAlreadyInRoom(pid){
     for (const key in rooms){
-        console.log(key, rooms[key], rooms[key].p1, pid)
-        if (rooms[key].p1.pid == pid || rooms[key].p2.pid == pid){
-            console.log("returning key", key)
+        if (rooms[key].p1.pid == pid || (rooms[key].p2 && rooms[key].p2.pid == pid)){
             return key;
         }
     }
-    console.log("returning null")
     return null;
 }
 
@@ -80,7 +77,7 @@ io.on('connection', function (socket) {
     let thisRoomID = undefined;
     
     socket.on('joined', ({roomID, friendRoom, playerID: givenID}) => {
-        if (process.env.DEBUG) console.log("player", givenID, "joined room", roomID);
+        console.log("player", givenID, "joined room", roomID);
         
         thisRoomID = roomID;
         if (thisRoomID == null) {
@@ -154,7 +151,7 @@ io.on('connection', function (socket) {
             }
         }
 
-        if (process.env.DEBUG) console.log("rooms", rooms)
+        console.log("rooms", rooms)
         
     });
     
@@ -163,12 +160,29 @@ io.on('connection', function (socket) {
         socket.broadcast.emit("establishReconnection", {...args, roomID: thisRoomID, pid: playerID})
     })
 
+    socket.on("admitDefeat", ()=>{
+        let thisRoom = rooms[thisRoomID];
+                
+        if (thisRoom && thisRoom.p1 && thisRoom.p2) {
+            if (thisRoom.p1.pid == playerID){
+                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                delete rooms[thisRoomID]
+            } else if (thisRoom.p2.pid == playerID){
+                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                delete rooms[thisRoomID]
+            }
+        } else if (thisRoom){
+            delete rooms[thisRoomID]
+        }
+
+        console.log("rooms", rooms)
+    })
+
     socket.on('disconnect', () => {
 
         if (rooms[thisRoomID]){
-            if (process.env.DEBUG) console.log(playerID + ' disconnected');
-            console.log(rooms, thisRoomID, playerID)
-
+            console.log(playerID + ' disconnected');
+            
             if (rooms[thisRoomID].p1.pid == playerID){
                 rooms[thisRoomID].p1.disconnected = true;
             } else if (rooms[thisRoomID].p2.pid == playerID){
@@ -176,25 +190,39 @@ io.on('connection', function (socket) {
             } else {
                 console.log("wrong room???")
             }
+
+            if (process.env.DEBUG) console.log("rooms", rooms)
             
-            setTimeout(()=>{
-                let thisRoom = rooms[thisRoomID];
-    
-                
-                if (thisRoom && thisRoom.p1 && thisRoom.p2) {
-                    if (thisRoom.p1.pid == playerID && thisRoom.p1.disconnected){
-                        socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
-                        delete rooms[thisRoomID]
-                    } else if (thisRoom.p2.pid == playerID && thisRoom.p2.disconnected){
-                        socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+            if (
+                rooms[thisRoomID].p1 && 
+                rooms[thisRoomID].p1.disconnected && 
+                rooms[thisRoomID].p2 && 
+                rooms[thisRoomID].p2.disconnected
+            ) {
+                delete rooms[thisRoomID]
+                console.log("rooms", rooms)
+            } else {
+                setTimeout(()=>{
+                    if (process.env.DEBUG) console.log("player", playerID, "timed out")
+                    let thisRoom = rooms[thisRoomID];
+                    
+                    if (thisRoom && thisRoom.p1 && thisRoom.p2) {
+                        if (thisRoom.p1.pid == playerID && thisRoom.p1.disconnected){
+                            socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                            delete rooms[thisRoomID]
+                        } else if (thisRoom.p2.pid == playerID && thisRoom.p2.disconnected){
+                            socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                            delete rooms[thisRoomID]
+                        }
+                    } else if (thisRoom){
                         delete rooms[thisRoomID]
                     }
-                } else if (thisRoom){
-                    delete rooms[thisRoomID]
-                }
-            }, 5000)
     
-            if (process.env.DEBUG) console.log("rooms", rooms)
+                    console.log("rooms", rooms)
+                }, 30000)
+            }
+
+    
         }
 
         
