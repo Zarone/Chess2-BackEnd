@@ -21,7 +21,7 @@ const io = socket(server, {
     allowEIO3: true
 });
 
-// contains objects like {p1: {pid, isWhite}, p2: {pid, isWhite}, friendRoom: boolean}
+// contains objects like {p1: {pid, isWhite, disconnected}, p2: {pid, isWhite, disconnected}, friendRoom: boolean}
 // index by room ID
 let rooms = {};
 
@@ -29,6 +29,7 @@ let rooms = {};
 let waitingRooms = []
 
 let roomCount = 0;
+let playerCount = 0;
 
 const MAX_ROOMS = 50;
 
@@ -62,18 +63,53 @@ function getFreeRoom(){
 
 }
 
+function checkAlreadyInRoom(pid){
+    for (const key in rooms){
+        console.log(key, rooms[key], rooms[key].p1, pid)
+        if (rooms[key].p1.pid == pid || rooms[key].p2.pid == pid){
+            console.log("returning key", key)
+            return key;
+        }
+    }
+    console.log("returning null")
+    return null;
+}
+
 io.on('connection', function (socket) {
-    let playerID =  Math.floor((Math.random() * 100) + 1)
+    let playerID;
     let thisRoomID = undefined;
     
-    if (process.env.DEBUG) console.log(playerID + ' connected');
-
-    socket.on('joined', ({roomID, friendRoom}) => {
-        if (process.env.DEBUG) console.log("player joined room", roomID);
+    socket.on('joined', ({roomID, friendRoom, playerID: givenID}) => {
+        if (process.env.DEBUG) console.log("player", givenID, "joined room", roomID);
         
         thisRoomID = roomID;
-        if (thisRoomID == null) thisRoomID = getFreeRoom();
+        if (thisRoomID == null) {
+            if (givenID != undefined){
+                alreadyInRoom = checkAlreadyInRoom(givenID);
+                if (alreadyInRoom != null){
+                    thisRoomID = alreadyInRoom;
+                    if (rooms[thisRoomID].p1.pid == givenID){
+                        rooms[thisRoomID].p1.disconnected = false;
+                    } else if (rooms[thisRoomID].p2.pid == givenID) {
+                        rooms[thisRoomID].p2.disconnected = false;
+                    } else {
+                        console.log("error with checkAlreadyInRoom")
+                    }
+                } else {
+                    thisRoomID = getFreeRoom();
+                }
+            } else {
+                thisRoomID = getFreeRoom();
+            }
+        }
 
+        if (givenID == undefined){
+            playerID = playerCount;
+            playerCount++;
+        } else {
+            playerID = givenID;
+        }
+        
         if (process.env.DEBUG) console.log("final roomID", thisRoomID)
 
         if (Object.keys(rooms).length >= MAX_ROOMS && rooms[thisRoomID] == undefined){
@@ -103,33 +139,65 @@ io.on('connection', function (socket) {
             socket.emit("twoPlayers", thisRoomID)
             socket.broadcast.emit("twoPlayers", thisRoomID)
         } else {
-            if (process.env.DEBUG) console.log("attempting to join full room, player", playerID)
-            socket.emit("fullRoom")
-            return
+            if (rooms[thisRoomID].p1.pid == playerID){
+                socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
+                socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p1.isWhite})
+                rooms[thisRoomID].p1.disconnected = false;
+            } else if (rooms[thisRoomID].p2.pid == playerID){
+                socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
+                socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2.isWhite})
+                rooms[thisRoomID].p2.disconnected = false;
+            } else {
+                if (process.env.DEBUG) console.log("attempting to join full room, player", playerID)
+                socket.emit("fullRoom")
+                return
+            }
         }
 
         if (process.env.DEBUG) console.log("rooms", rooms)
         
     });
     
+    socket.on('reconnectData', args=>{
+        console.log("on reconnectData")
+        socket.broadcast.emit("establishReconnection", {...args, roomID: thisRoomID, pid: playerID})
+    })
+
     socket.on('disconnect', () => {
 
-        if (process.env.DEBUG) console.log(playerID + ' disconnected');
-        
-        let thisRoom = rooms[thisRoomID];
-        if (thisRoom && thisRoom.p1 && thisRoom.p2) {
-            if (thisRoom.p1.pid == playerID){
-                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
-            } else {
-                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
-            }
-    
-            delete rooms[thisRoomID]
-        } else if (thisRoom){
-            delete rooms[thisRoomID]
-        }
-        if (process.env.DEBUG) console.log("rooms", rooms)
+        if (rooms[thisRoomID]){
+            if (process.env.DEBUG) console.log(playerID + ' disconnected');
+            console.log(rooms, thisRoomID, playerID)
 
+            if (rooms[thisRoomID].p1.pid == playerID){
+                rooms[thisRoomID].p1.disconnected = true;
+            } else if (rooms[thisRoomID].p2.pid == playerID){
+                rooms[thisRoomID].p2.disconnected = true;
+            } else {
+                console.log("wrong room???")
+            }
+            
+            setTimeout(()=>{
+                let thisRoom = rooms[thisRoomID];
+    
+                
+                if (thisRoom && thisRoom.p1 && thisRoom.p2) {
+                    if (thisRoom.p1.pid == playerID && thisRoom.p1.disconnected){
+                        socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                        delete rooms[thisRoomID]
+                    } else if (thisRoom.p2.pid == playerID && thisRoom.p2.disconnected){
+                        socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                        delete rooms[thisRoomID]
+                    }
+                } else if (thisRoom){
+                    delete rooms[thisRoomID]
+                }
+            }, 5000)
+    
+            if (process.env.DEBUG) console.log("rooms", rooms)
+        }
+
+        
     }); 
 
     socket.on("makeMove", (args)=>{
