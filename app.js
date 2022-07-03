@@ -124,9 +124,9 @@ io.on('connection', function (socket) {
             socket.emit('player', {...rooms[thisRoomID].p1, roomID: thisRoomID, } )
         } else if (rooms[thisRoomID].p2 == undefined){
             
-            if (playerID == rooms[thisRoomID].p1.pid){
-                playerID++;
-            }
+            // if (playerID == rooms[thisRoomID].p1.pid){
+            //     playerID++;
+            // }
 
             rooms[thisRoomID].p2 = { pid: playerID, isWhite: false };
 
@@ -193,10 +193,13 @@ io.on('connection', function (socket) {
             if (process.env.DEBUG) console.log("rooms", rooms)
             
             if (
-                rooms[thisRoomID].p1 && 
-                rooms[thisRoomID].p1.disconnected && 
-                rooms[thisRoomID].p2 && 
-                rooms[thisRoomID].p2.disconnected
+                !rooms[thisRoomID].p2 ||
+                (
+                    rooms[thisRoomID].p1 && 
+                    rooms[thisRoomID].p1.disconnected && 
+                    rooms[thisRoomID].p2 && 
+                    rooms[thisRoomID].p2.disconnected
+                )
             ) {
                 delete rooms[thisRoomID]
                 console.log("rooms", rooms)
