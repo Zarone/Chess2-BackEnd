@@ -66,7 +66,7 @@ function getFreeRoom(timeLimit){
 
 function checkAlreadyInRoom(pid){
     for (const key in rooms){
-        if (rooms[key].p1.pid == pid || (rooms[key].p2 && rooms[key].p2.pid == pid)){
+        if ((rooms[key].p1.pid == pid && rooms[key].p1.disconnected) || (rooms[key].p2 && rooms[key].p2.pid == pid && rooms[key].p2.disconnected)){
             return key;
         }
     }
@@ -125,9 +125,10 @@ io.on('connection', function (socket) {
             socket.emit('player', {...rooms[thisRoomID].p1, roomID: thisRoomID } )
         } else if (rooms[thisRoomID].p2 == undefined){
             
-            // if (playerID == rooms[thisRoomID].p1.pid){
-            //     playerID++;
-            // }
+            if (playerID == rooms[thisRoomID].p1.pid){
+                playerID++;
+                playerCount++;
+            }
 
             rooms[thisRoomID].p2 = { pid: playerID, isWhite: false, time: null };
 
@@ -140,16 +141,17 @@ io.on('connection', function (socket) {
             rooms[thisRoomID].p2.time = 0;
             rooms[thisRoomID].p1.time = 0;
         } else {
-            if (rooms[thisRoomID].p1.pid == playerID){
+            if (rooms[thisRoomID].p1.pid == playerID && rooms[thisRoomID].p1.disconnected){
                 socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
                 socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p1.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
                 rooms[thisRoomID].p1.disconnected = false;
-            } else if (rooms[thisRoomID].p2.pid == playerID){
+            } else if (rooms[thisRoomID].p2.pid == playerID && rooms[thisRoomID].p2.disconnected){
                 socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
                 socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
                 rooms[thisRoomID].p2.disconnected = false;
             } else {
                 if (process.env.DEBUG) console.log("attempting to join full room, player", playerID)
+                thisRoomID = null
                 socket.emit("fullRoom")
                 return
             }
