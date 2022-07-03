@@ -156,7 +156,6 @@ io.on('connection', function (socket) {
     });
     
     socket.on('reconnectData', args=>{
-        console.log("on reconnectData")
         socket.broadcast.emit("establishReconnection", {...args, roomID: thisRoomID, pid: playerID})
     })
 
