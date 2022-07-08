@@ -86,13 +86,15 @@ io.on('connection', function (socket) {
                 alreadyInRoom = checkAlreadyInRoom(givenID);
                 if (alreadyInRoom != null){
                     thisRoomID = alreadyInRoom;
-                    if (rooms[thisRoomID].p1.pid == givenID){
-                        rooms[thisRoomID].p1.disconnected = false;
-                    } else if (rooms[thisRoomID].p2.pid == givenID) {
-                        rooms[thisRoomID].p2.disconnected = false;
-                    } else {
-                        console.log("error with checkAlreadyInRoom")
-                    }
+                    // if (rooms[thisRoomID].p1.pid == givenID){
+                    //     rooms[thisRoomID].p1.disconnected = false;
+                    //     console.log("p1 = false, top")
+                    // } else if (rooms[thisRoomID].p2.pid == givenID) {
+                    //     rooms[thisRoomID].p2.disconnected = false;
+                    //     console.log("p2 = false, top")
+                    // } else {
+                    //     console.log("error with checkAlreadyInRoom")
+                    // }
                 } else {
                     thisRoomID = getFreeRoom(timeLimit);
                 }
@@ -141,14 +143,17 @@ io.on('connection', function (socket) {
             rooms[thisRoomID].p2.time = 0;
             rooms[thisRoomID].p1.time = 0;
         } else {
+            // debugger
             if (rooms[thisRoomID].p1.pid == playerID && rooms[thisRoomID].p1.disconnected){
                 socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
                 socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p1.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
                 rooms[thisRoomID].p1.disconnected = false;
+                console.log("p1 = false")
             } else if (rooms[thisRoomID].p2.pid == playerID && rooms[thisRoomID].p2.disconnected){
                 socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID});
                 socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
                 rooms[thisRoomID].p2.disconnected = false;
+                console.log("p2 = false")
             } else {
                 if (process.env.DEBUG) console.log("attempting to join full room, player", playerID)
                 thisRoomID = null
@@ -162,6 +167,8 @@ io.on('connection', function (socket) {
     });
     
     socket.on('reconnectData', args=>{
+
+        if (!rooms[thisRoomID]) return;
 
         let timeSinceLastMove = Math.abs(new Date() - rooms[thisRoomID].timeOfLastMove)/1000
 
