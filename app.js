@@ -13,7 +13,7 @@ app.use(cors())
 const server = http.createServer(app);
 const io = socket(server, {
     cors: {
-        origin: process.env.CLIENT,
+        origin: process.env.CLIENT || ["http://localhost:5500", "http://127.0.0.1:5500"],
         methods: ["GET", "POST"],
         transports: ['websocket', 'polling'],
         credentials: true
