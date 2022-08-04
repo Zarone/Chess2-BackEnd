@@ -30,6 +30,13 @@ let waitingRooms = []
 
 let roomCount = 0;
 let playerCount = 0;
+let usedPlayerIds = {};
+
+getNextUnusedPlayerID = () => {
+    playerID = playerCount;
+    while ( usedPlayerIds[playerID] ) playerID = ++playerCount;
+    return playerID;
+};
 
 const MAX_ROOMS = 50;
 
@@ -77,7 +84,7 @@ io.on('connection', function (socket) {
     let playerID;
     let thisRoomID = undefined;
     
-    socket.on('joined', ({roomID, friendRoom, playerID: givenID, timeLimit}) => {
+    socket.on('joined', ({roomID, friendRoom, playerID: givenID, timeLimit, spectator}) => {
         console.log("player", givenID, "joined room", roomID);
         
         thisRoomID = roomID;
@@ -104,20 +111,35 @@ io.on('connection', function (socket) {
         }
 
         if (givenID == undefined){
-            playerID = playerCount;
-            playerCount++;
+            playerID = getNextUnusedPlayerID();
         } else {
+            // TODO: session token to verify
+            usedPlayerIds[givenID] = true;
             playerID = givenID;
         }
         
         if (process.env.DEBUG) console.log("final roomID", thisRoomID)
 
-        if (Object.keys(rooms).length >= MAX_ROOMS && rooms[thisRoomID] == undefined){
+        if (
+            Object.keys(rooms).length >= MAX_ROOMS
+            && rooms[thisRoomID] == undefined
+            && ! spectator
+        ){
             socket.emit("maximumPlayers")
             return
         } else if (rooms[thisRoomID] == undefined){
             rooms[thisRoomID] = {friendRoom, timeLimit}
             roomCount++;
+        }
+
+        if ( spectator ) {
+            if ( ! rooms[thisRoomID].spectators ) rooms[thisRoomID].spectators = [];
+            console.log(`[SPECTATOR(${playerID})] sending initial board state`);
+            const spectators = rooms[thisRoomID].spectators;
+            if ( ! spectators.includes(playerID) ) spectators.push(playerID);
+            socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID, spectator: true});
+            socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
+            return;
         }
 
         // if this is the first player to join the room
