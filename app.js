@@ -236,7 +236,8 @@ io.on('connection', function (socket) {
             } else if (rooms[thisRoomID].p2 && rooms[thisRoomID].p2?.pid == playerID){
                 rooms[thisRoomID].p2.disconnected = true;
             } else {
-                console.log("wrong room???")
+                console.log("wrong room or spectator disconnected")
+                return;
             }
 
             if (process.env.DEBUG) console.log("rooms", rooms)
