@@ -38,7 +38,7 @@ getNextUnusedPlayerID = () => {
     return playerID;
 };
 
-const MAX_ROOMS = 50;
+const MAX_ROOMS = 75;
 
 class Logger {
     exception (e) {
@@ -261,6 +261,11 @@ io.on('connection', function (socket) {
                 rooms[thisRoomID].p2.disconnected = true;
             } else {
                 console.log("wrong room or spectator disconnected")
+
+                if (!rooms[thisRoomID].p1 && !rooms[thisRoomID].p2){
+                    delete rooms[thisRoomID]
+                }
+
                 return;
             }
 
