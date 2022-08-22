@@ -13,7 +13,8 @@ app.use(cors())
 const server = http.createServer(app);
 const io = socket(server, {
     cors: {
-        origin: process.env.CLIENT || ["http://localhost:5500", "http://127.0.0.1:5500"],
+        origin: '*',
+        // origin: process.env.CLIENT || ["http://localhost:5500", "http://127.0.0.1:5500"],
         methods: ["GET", "POST"],
         transports: ['websocket', 'polling'],
         credentials: true
@@ -38,7 +39,7 @@ getNextUnusedPlayerID = () => {
     return playerID;
 };
 
-const MAX_ROOMS = 50;
+const MAX_ROOMS = process.env.MAX_ROOMS || 50;
 
 function getFreeRoom(timeLimit){
     if (process.env.DEBUG) console.log("call to /getOpenRoom")
