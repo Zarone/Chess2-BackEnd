@@ -32,8 +32,8 @@ let roomCount = 0;
 let playerCount = 0;
 let usedPlayerIds = {};
 
-getNextUnusedPlayerID = () => {
-    playerID = playerCount;
+let getNextUnusedPlayerID = () => {
+    let playerID = playerCount;
     while ( usedPlayerIds[playerID] ) playerID = ++playerCount;
     return playerID;
 };
@@ -81,7 +81,7 @@ function getFreeRoom(timeLimit){
 
 function checkAlreadyInRoom(pid){
     for (const key in rooms){
-        if ((rooms[key].p1?.pid == pid && rooms[key].p1?.disconnected) || (rooms[key].p2 && rooms[key].p2?.pid == pid && rooms[key].p2?.disconnected)){
+        if ((rooms[key].p1 && rooms[key].p1.pid == pid && rooms[key].p1.disconnected) || (rooms[key].p2 && rooms[key].p2.pid == pid && rooms[key].p2.disconnected)){
             return key;
         }
     }
@@ -98,7 +98,7 @@ io.on('connection', function (socket) {
         thisRoomID = roomID;
         if (thisRoomID == null) {
             if (givenID != undefined){
-                alreadyInRoom = checkAlreadyInRoom(givenID);
+                let alreadyInRoom = checkAlreadyInRoom(givenID);
                 if (alreadyInRoom != null){
                     thisRoomID = alreadyInRoom;
                     // if (rooms[thisRoomID].p1.pid == givenID){
@@ -146,7 +146,7 @@ io.on('connection', function (socket) {
             const spectators = rooms[thisRoomID].spectators;
             if ( ! spectators.includes(playerID) ) spectators.push(playerID);
             socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID, spectator: true});
-            socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2?.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
+            socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2 && rooms[thisRoomID].p2.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
             return;
         }
 
@@ -211,16 +211,17 @@ io.on('connection', function (socket) {
         let timeSinceLastMove = Math.abs(new Date() - rooms[thisRoomID].timeOfLastMove)/1000
 
         try {
+
             socket.broadcast.emit("establishReconnection", {
                 ...args, 
                 roomID: thisRoomID, 
                 pid: playerID, 
-                timeWhite: rooms[thisRoomID].p1?.isWhite ? 
-                    rooms[thisRoomID].p1?.time :
-                    rooms[thisRoomID].p2?.time,
-                timeBlack: !rooms[thisRoomID].p1?.isWhite ? 
-                    rooms[thisRoomID].p1?.time :
-                    rooms[thisRoomID].p2?.time,
+                timeWhite: rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite ? 
+                    rooms[thisRoomID].p1.time :
+                    rooms[thisRoomID].p2.time,
+                timeBlack: !(rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite) ? 
+                    rooms[thisRoomID].p1.time :
+                    rooms[thisRoomID].p2.time,
                 timeSinceLastMove
             })
         } catch (e) {
@@ -255,9 +256,9 @@ io.on('connection', function (socket) {
         if (rooms[thisRoomID]){
             console.log(playerID + ' disconnected');
             
-            if (rooms[thisRoomID].p1?.pid == playerID){
+            if (rooms[thisRoomID] && rooms[thisRoomID].p1.pid == playerID){
                 rooms[thisRoomID].p1.disconnected = true;
-            } else if (rooms[thisRoomID].p2 && rooms[thisRoomID].p2?.pid == playerID){
+            } else if (rooms[thisRoomID].p2 && rooms[thisRoomID].p2.pid == playerID){
                 rooms[thisRoomID].p2.disconnected = true;
             } else {
                 console.log("wrong room or spectator disconnected")
