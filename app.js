@@ -219,7 +219,7 @@ io.on('connection', function (socket) {
                 timeWhite: rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite ? 
                     rooms[thisRoomID].p1.time :
                     rooms[thisRoomID].p2.time,
-                timeBlack: !rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite ? 
+                timeBlack: !(rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite) ? 
                     rooms[thisRoomID].p1.time :
                     rooms[thisRoomID].p2.time,
                 timeSinceLastMove
