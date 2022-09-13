@@ -32,13 +32,21 @@ let roomCount = 0;
 let playerCount = 0;
 let usedPlayerIds = {};
 
-getNextUnusedPlayerID = () => {
-    playerID = playerCount;
+let getNextUnusedPlayerID = () => {
+    let playerID = playerCount;
     while ( usedPlayerIds[playerID] ) playerID = ++playerCount;
     return playerID;
 };
 
-const MAX_ROOMS = 50;
+const MAX_ROOMS = 75;
+
+class Logger {
+    exception (e) {
+        console.error(e);
+    }
+}
+
+const logger = new Logger();
 
 function getFreeRoom(timeLimit){
     if (process.env.DEBUG) console.log("call to /getOpenRoom")
@@ -73,7 +81,7 @@ function getFreeRoom(timeLimit){
 
 function checkAlreadyInRoom(pid){
     for (const key in rooms){
-        if ((rooms[key].p1?.pid == pid && rooms[key].p1?.disconnected) || (rooms[key].p2 && rooms[key].p2?.pid == pid && rooms[key].p2?.disconnected)){
+        if ((rooms[key].p1 && rooms[key].p1.pid == pid && rooms[key].p1.disconnected) || (rooms[key].p2 && rooms[key].p2.pid == pid && rooms[key].p2.disconnected)){
             return key;
         }
     }
@@ -83,14 +91,14 @@ function checkAlreadyInRoom(pid){
 io.on('connection', function (socket) {
     let playerID;
     let thisRoomID = undefined;
-    
-    socket.on('joined', ({roomID, friendRoom, playerID: givenID, timeLimit, spectator}) => {
+
+    const joinFunction = ({roomID, friendRoom, playerID: givenID, timeLimit, spectator}) => {
         console.log("player", givenID, "joined room", roomID);
         
         thisRoomID = roomID;
         if (thisRoomID == null) {
             if (givenID != undefined){
-                alreadyInRoom = checkAlreadyInRoom(givenID);
+                let alreadyInRoom = checkAlreadyInRoom(givenID);
                 if (alreadyInRoom != null){
                     thisRoomID = alreadyInRoom;
                     // if (rooms[thisRoomID].p1.pid == givenID){
@@ -138,7 +146,7 @@ io.on('connection', function (socket) {
             const spectators = rooms[thisRoomID].spectators;
             if ( ! spectators.includes(playerID) ) spectators.push(playerID);
             socket.broadcast.emit("needReconnectData", {roomID: thisRoomID, pid: playerID, spectator: true});
-            socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2?.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
+            socket.emit("partialReconnect", {roomID: thisRoomID, pid: playerID, isWhite: rooms[thisRoomID].p2 && rooms[thisRoomID].p2.isWhite, timeLimit: rooms[thisRoomID].timeLimit})
             return;
         }
 
@@ -186,6 +194,14 @@ io.on('connection', function (socket) {
 
         console.log("rooms", rooms)
         
+    }
+    
+    socket.on('joined', message => {
+        try {
+            joinFunction(message);
+        } catch (e) {
+            logger.exception(e);
+        }
     });
     
     socket.on('reconnectData', args=>{
@@ -194,18 +210,23 @@ io.on('connection', function (socket) {
 
         let timeSinceLastMove = Math.abs(new Date() - rooms[thisRoomID].timeOfLastMove)/1000
 
-        socket.broadcast.emit("establishReconnection", {
-            ...args, 
-            roomID: thisRoomID, 
-            pid: playerID, 
-            timeWhite: rooms[thisRoomID].p1?.isWhite ? 
-                rooms[thisRoomID].p1?.time :
-                rooms[thisRoomID].p2?.time,
-            timeBlack: !rooms[thisRoomID].p1?.isWhite ? 
-                rooms[thisRoomID].p1?.time :
-                rooms[thisRoomID].p2?.time,
-            timeSinceLastMove
-        })
+        try {
+
+            socket.broadcast.emit("establishReconnection", {
+                ...args, 
+                roomID: thisRoomID, 
+                pid: playerID, 
+                timeWhite: rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite ? 
+                    rooms[thisRoomID].p1.time :
+                    rooms[thisRoomID].p2.time,
+                timeBlack: !(rooms[thisRoomID].p1 && rooms[thisRoomID].p2 && rooms[thisRoomID].p1.isWhite) ? 
+                    rooms[thisRoomID].p1.time :
+                    rooms[thisRoomID].p2.time,
+                timeSinceLastMove
+            })
+        } catch (e) {
+            logger.exception(e);
+        }
     })
 
     socket.on("admitDefeat", ()=>{
@@ -213,10 +234,14 @@ io.on('connection', function (socket) {
                 
         if (thisRoom && thisRoom.p1 && thisRoom.p2) {
             if (thisRoom.p1.pid == playerID){
-                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                try {
+                    socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                } catch (e) { logger.exception(e); }
                 delete rooms[thisRoomID]
             } else if (thisRoom.p2.pid == playerID){
-                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                try {
+                    socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                } catch (e) { logger.exception(e); }
                 delete rooms[thisRoomID]
             }
         } else if (thisRoom){
@@ -231,12 +256,17 @@ io.on('connection', function (socket) {
         if (rooms[thisRoomID]){
             console.log(playerID + ' disconnected');
             
-            if (rooms[thisRoomID].p1?.pid == playerID){
+            if (rooms[thisRoomID] && rooms[thisRoomID].p1.pid == playerID){
                 rooms[thisRoomID].p1.disconnected = true;
-            } else if (rooms[thisRoomID].p2 && rooms[thisRoomID].p2?.pid == playerID){
+            } else if (rooms[thisRoomID].p2 && rooms[thisRoomID].p2.pid == playerID){
                 rooms[thisRoomID].p2.disconnected = true;
             } else {
                 console.log("wrong room or spectator disconnected")
+
+                if (!rooms[thisRoomID].p1 && !rooms[thisRoomID].p2){
+                    delete rooms[thisRoomID]
+                }
+
                 return;
             }
 
@@ -260,10 +290,14 @@ io.on('connection', function (socket) {
                     
                     if (thisRoom && thisRoom.p1 && thisRoom.p2) {
                         if (thisRoom.p1.pid == playerID && thisRoom.p1.disconnected){
-                            socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                            try {
+                                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p2.pid});
+                            } catch (e) { logger.exception(e); }
                             delete rooms[thisRoomID]
                         } else if (thisRoom.p2.pid == playerID && thisRoom.p2.disconnected){
-                            socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                            try {
+                                socket.broadcast.emit('gameOver', {room: thisRoomID, id: thisRoom.p1.pid});
+                            } catch (e) { logger.exception(e); }
                             delete rooms[thisRoomID]
                         }
                     } else if (thisRoom){
@@ -294,7 +328,11 @@ io.on('connection', function (socket) {
                 if (process.env.DEBUG) console.log("rooms", rooms)
             }
     
-            socket.broadcast.emit("registeredMove", args)
+            try {
+                socket.broadcast.emit("registeredMove", args);
+            } catch (e) {
+                logger.exception(e);
+            }
         }
     })
 
